@@ -171,4 +171,6 @@ See the companion `hooks/` directory for setup instructions.
 
 ## License
 
-MIT
+[GNU Affero General Public License v3.0](LICENSE.txt)
+
+Any project that uses, modifies, or builds on FLCN Security must also be released as open source under the AGPL v3 (or a compatible license). This includes projects that expose the extension's functionality over a network.

@@ -5,7 +5,7 @@
   "version": "1.6.1",
   "publisher": "FLCN-16",
   "icon": "icon.png",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "engines": {
     "vscode": "^1.85.0"
   },
