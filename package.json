@@ -1,0 +1,317 @@
+{
+  "name": "flcn-sec",
+  "displayName": "FLCN Security — Credential & Vulnerability Guard",
+  "description": "Real-time credential detection and redaction. Protects against leaking API keys, tokens, and secrets to AI coding assistants.",
+  "version": "1.6.1",
+  "publisher": "FLCN-16",
+  "icon": "icon.png",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "security",
+    "credentials",
+    "secrets",
+    "api-keys",
+    "vulnerabilities",
+    "osv",
+    "cve",
+    "claude",
+    "copilot",
+    "cursor",
+    "devsecops"
+  ],
+  "galleryBanner": {
+    "color": "#0d1117",
+    "theme": "dark"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "flcn-sec-panel",
+          "title": "FLCN Security",
+          "icon": "icons/shield.svg"
+        }
+      ]
+    },
+    "views": {
+      "flcn-sec-panel": [
+        {
+          "type": "webview",
+          "id": "flcn-sec.securityView",
+          "name": "FLCN Sec"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "flcn-sec.openDashboard",
+        "title": "FLCN Sec: Open Security Dashboard"
+      },
+      {
+        "command": "flcn-sec.scanFile",
+        "title": "FLCN Sec: Scan Current File for Credentials"
+      },
+      {
+        "command": "flcn-sec.redactFile",
+        "title": "FLCN Sec: Redact All Credentials in File"
+      },
+      {
+        "command": "flcn-sec.toggleRealTime",
+        "title": "FLCN Sec: Toggle Real-time Scanning"
+      },
+      {
+        "command": "flcn-sec.showLog",
+        "title": "FLCN Sec: Show Findings Log"
+      },
+      {
+        "command": "flcn-sec.openSettings",
+        "title": "FLCN Sec: Open Settings"
+      },
+      {
+        "command": "flcn-sec.excludeFromAI",
+        "title": "FLCN Sec: Exclude Sensitive Files from AI (Copilot + Cursor)"
+      },
+      {
+        "command": "flcn-sec.openRedactedView",
+        "title": "FLCN Sec: Open Redacted View (safe to share with AI)"
+      },
+      {
+        "command": "flcn-sec.installGitHook",
+        "title": "FLCN Sec: Install Git Pre-commit Hook"
+      },
+      {
+        "command": "flcn-sec.uninstallGitHook",
+        "title": "FLCN Sec: Uninstall Git Pre-commit Hook"
+      },
+      {
+        "command": "flcn-sec.scanDependencies",
+        "title": "FLCN Sec: Scan Dependencies for Vulnerabilities (OSV)"
+      }
+    ],
+    "configuration": {
+      "title": "FLCN Sec Credential Guard",
+      "properties": {
+        "flcn-sec.enableRealTimeScan": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scan files in real time as you type and show inline diagnostics."
+        },
+        "flcn-sec.warnOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning when opening a file that contains credentials, with an option to redact immediately."
+        },
+        "flcn-sec.warnOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning notification when saving a file that contains credentials."
+        },
+        "flcn-sec.severity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning"
+          ],
+          "default": "error",
+          "description": "Diagnostic severity for detected credentials."
+        },
+        "flcn-sec.excludeFilePatterns": {
+          "type": "array",
+          "default": [
+            "**/.git/**",
+            "**/node_modules/**",
+            "**/*.lock"
+          ],
+          "description": "Glob patterns for files to skip entirely (e.g. '**/*.test.ts', '**/fixtures/**').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "flcn-sec.maxFileSizeKb": {
+          "type": "number",
+          "default": 512,
+          "description": "Maximum file size in KB to scan. Larger files are skipped."
+        },
+        "flcn-sec.customDetectors": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "**Custom regex patterns** to detect as credentials, in addition to the built-ins.\n\nExample:\n```json\n[{ \"name\": \"MyApp Token\", \"pattern\": \"myapp_[A-Za-z0-9]{32}\", \"flags\": \"g\" }]\n```",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "pattern"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Display name shown in diagnostics and the findings log."
+              },
+              "pattern": {
+                "type": "string",
+                "description": "JavaScript regex pattern string (no slashes, no flags — use the 'flags' field)."
+              },
+              "flags": {
+                "type": "string",
+                "default": "g",
+                "description": "Regex flags, e.g. 'gi', 'gim'. The 'g' flag is always added automatically."
+              },
+              "group": {
+                "type": "number",
+                "default": 0,
+                "description": "Capture group index that IS the secret value (0 = full match). Use 1+ to redact only the value while preserving surrounding context (e.g. a KEY= label)."
+              }
+            }
+          }
+        },
+        "flcn-sec.allowlist": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "**Suppress specific findings.** A finding is suppressed if ALL specified conditions in a rule match.\n\nBuilt-in shortcut: add `# flcn-sec-ignore` to any line to suppress findings on that line.\n\nExample — suppress example/placeholder values:\n```json\n[{ \"valuePattern\": \"^(example|placeholder|dummy|REPLACE_ME)\", \"description\": \"Allow example values\" }]\n```\nExample — suppress JWTs in test files:\n```json\n[{ \"detectorName\": \"JSON Web Token\", \"filePattern\": \"**/*.test.*\" }]\n```",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "Human-readable note explaining why this suppression is safe."
+              },
+              "valuePattern": {
+                "type": "string",
+                "description": "Regex matched against the detected credential value. Suppresses if it matches."
+              },
+              "linePattern": {
+                "type": "string",
+                "description": "Regex matched against the full source line. Use '# flcn-sec-ignore' for inline suppression."
+              },
+              "filePattern": {
+                "type": "string",
+                "description": "Glob pattern. Only apply this rule to matching files, e.g. '**/*.test.ts' or '**/fixtures/**'."
+              },
+              "detectorName": {
+                "type": "string",
+                "description": "Only suppress findings from this specific detector, e.g. 'JSON Web Token'."
+              }
+            }
+          }
+        },
+        "flcn-sec.osv.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable OSV.dev vulnerability scanning for dependency manifests (package.json, requirements.txt, Cargo.toml, Gemfile, go.mod)."
+        },
+        "flcn-sec.osv.scanOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run an OSV.dev vulnerability scan automatically when the project opens."
+        },
+        "flcn-sec.osv.scanIntervalMinutes": {
+          "type": "number",
+          "default": 60,
+          "minimum": 0,
+          "description": "How often (in minutes) to re-scan dependencies for new vulnerabilities. Set to 0 to disable interval scanning."
+        },
+        "flcn-sec.osv.blockSeverity": {
+          "type": "string",
+          "enum": [
+            "CRITICAL",
+            "HIGH",
+            "MEDIUM",
+            "LOW",
+            "NONE"
+          ],
+          "enumDescriptions": [
+            "Show as error only for CRITICAL vulnerabilities.",
+            "Show as error for HIGH and CRITICAL vulnerabilities (recommended).",
+            "Show as error for MEDIUM, HIGH, and CRITICAL vulnerabilities.",
+            "Show all vulnerabilities as errors.",
+            "Never show as error — report all as warnings/info only."
+          ],
+          "default": "HIGH",
+          "description": "Severity level at or above which vulnerabilities are shown as errors in the Problems panel. Findings below this level show as warnings or info."
+        },
+        "flcn-sec.github.token": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub personal access token for GitHub Security Advisories API (GHSA). Without a token, rate limit is 60 req/hr. With token: 5000 req/hr."
+        },
+        "flcn-sec.nvd.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "NVD API key from https://nvd.nist.gov/developers/request-an-api-key. Without key: 5 req/30s. With key: 50 req/30s."
+        },
+        "flcn-sec.nvd.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable NVD (NIST) CVE scanning. Slower than OSV/GHSA due to rate limits."
+        },
+        "flcn-sec.ghsa.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable GitHub Security Advisories scanning."
+        },
+        "flcn-sec.npmAudit.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable npm audit scanning for Node.js projects."
+        },
+        "flcn-sec.disabledDetectors": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "**Disable specific built-in detectors** by name. Useful when a pattern causes too many false positives in your codebase.\n\nBuilt-in names: `Anthropic API Key`, `OpenAI API Key`, `AWS Access Key ID`, `AWS Secret Access Key`, `GitHub Token`, `Slack Token`, `Stripe Secret Key`, `Google API Key`, `JSON Web Token`, `PEM Private Key`, `GCP Service Account`, `HuggingFace Token`, `npm Token`, `Docker Hub PAT`, `SendGrid API Key`, `DigitalOcean Token`, `Databricks Token`, `Azure Storage Key`, `MongoDB Connection String`, `Env-style Secret Assignment`.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "flcn-sec.redactFile",
+          "group": "flcn-sec",
+          "when": "editorIsOpen"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run bundle",
+    "compile": "tsc --noEmit",
+    "bundle": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\" && esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --format=cjs --sourcemap",
+    "watch": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --platform=node --format=cjs --sourcemap --watch",
+    "package": "npm run bundle && vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies",
+    "install-ext": "npm run package && code --install-extension flcn-sec-1.6.1.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FLCN-16/flcn-security-vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/FLCN-16/flcn-security-vscode/issues"
+  },
+  "homepage": "https://github.com/FLCN-16/flcn-security-vscode#readme",
+  "dependencies": {
+    "@sentry/node": "^10.53.1"
+  }
+}
